@@ -1,142 +1,172 @@
-import React, { useState } from 'react';
-import { motion } from 'framer-motion';
-import './index.css';
+// Mystery Game Drawing Web App
 
-const randomDraw = (min, max, duration = 3000, callback) => {
-  let interval;
-  const start = Date.now();
-  const draw = () => Math.floor(Math.random() * (max - min + 1)) + min;
+import React, { useState } from "react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { CardContent } from "@/components/ui/card";
+import { motion } from "framer-motion";
 
-  const tick = () => {
-    const now = Date.now();
-    if (now - start >= duration) {
-      clearInterval(interval);
-      callback(draw());
-    }
-  };
-
-  interval = setInterval(tick, 50);
-};
-
-const GameBox = ({ label, value, onDraw, disabled }) => (
-  <div className="game-box">
-    <div className="game-label">{label}</div>
-    <motion.div
-      className="game-value"
-      animate={{ scale: [1, 1.2, 1] }}
-      transition={{ duration: 0.5 }}
-    >
-      {value ?? '--'}
-    </motion.div>
-    <button onClick={onDraw} disabled={disabled || value !== null}>
-      Draw
-    </button>
-  </div>
-);
-
-const MysteryGame = () => {
-  const [leagueName, setLeagueName] = useState('My League');
-  const [minScore, setMinScore] = useState(100);
-  const [prizes, setPrizes] = useState(['$10', '$20', '$30']);
-  const [gameScores, setGameScores] = useState([null, null, null]);
-  const [drawing, setDrawing] = useState(false);
-  const [editing, setEditing] = useState(false);
-  const [lightMode, setLightMode] = useState(true);
+export default function MysteryGame() {
+  const [leagueName, setLeagueName] = useState("Mystery Game Drawing");
+  const [minScore, setMinScore] = useState(125);
+  const [prizes, setPrizes] = useState({ g1: 0, g2: 0, g3: 0, series: 0 });
+  const [drawnScores, setDrawnScores] = useState({ g1: null, g2: null, g3: null });
+  const [isDrawing, setIsDrawing] = useState({ g1: false, g2: false, g3: false });
   const [showSetup, setShowSetup] = useState(true);
+  const [showSettings, setShowSettings] = useState(false);
+  const [darkMode, setDarkMode] = useState(false);
 
-  const drawGame = (index) => {
-    if (drawing) return;
-    setDrawing(true);
-    randomDraw(minScore, 300, 3000, (score) => {
-      const newScores = [...gameScores];
-      newScores[index] = score;
-      setGameScores(newScores);
-      setDrawing(false);
-    });
+  const randomScore = () => Math.floor(Math.random() * (300 - minScore + 1)) + minScore;
+
+  const drawGame = (gameKey) => {
+    setIsDrawing((prev) => ({ ...prev, [gameKey]: true }));
+    let frame = 0;
+    const interval = setInterval(() => {
+      const score = randomScore();
+      setDrawnScores((prev) => ({ ...prev, [gameKey]: score }));
+      frame++;
+      if (frame >= 30) {
+        clearInterval(interval);
+        setIsDrawing((prev) => ({ ...prev, [gameKey]: false }));
+      }
+    }, 100);
   };
 
-  const total = gameScores.every((v) => v !== null)
-    ? gameScores.reduce((a, b) => a + b, 0)
-    : null;
+  const reset = () => {
+    setDrawnScores({ g1: null, g2: null, g3: null });
+  };
 
-  const reset = () => setGameScores([null, null, null]);
+  const canDraw = (key) => {
+    if (key === "g1") return !drawnScores.g1;
+    if (key === "g2") return drawnScores.g1 && !drawnScores.g2;
+    if (key === "g3") return drawnScores.g2 && !drawnScores.g3;
+    return false;
+  };
+
+  const seriesTotal =
+    drawnScores.g1 && drawnScores.g2 && drawnScores.g3
+      ? drawnScores.g1 + drawnScores.g2 + drawnScores.g3
+      : null;
+
+  const themeClasses = darkMode
+    ? "bg-black text-white"
+    : "bg-white text-black";
+
+  if (showSetup) {
+    return (
+      <div className={`flex flex-col items-center justify-center min-h-screen p-4 ${themeClasses}`}>
+        <h1 className="text-3xl font-bold mb-4">Setup Mystery Game</h1>
+        <label className="mb-1">League Name</label>
+        <Input
+          placeholder="League Name"
+          value={leagueName}
+          onChange={(e) => setLeagueName(e.target.value)}
+          className="mb-2 w-64"
+        />
+        <label className="mb-1">Minimum Score (e.g., 125)</label>
+        <Input
+          placeholder="Minimum Score"
+          type="number"
+          value={minScore}
+          onChange={(e) => setMinScore(Number(e.target.value))}
+          className="mb-2 w-64"
+        />
+        {['g1', 'g2', 'g3', 'series'].map((key) => (
+          <div key={key} className="w-64 mb-2">
+            <label className="block mb-1">{`${key === 'series' ? 'Series' : 'Game ' + key[1]} Prize`}</label>
+            <Input
+              type="number"
+              value={prizes[key]}
+              onChange={(e) => setPrizes((p) => ({ ...p, [key]: Number(e.target.value) }))}
+            />
+          </div>
+        ))}
+        <div className="flex items-center gap-2 mt-4">
+          <Button onClick={() => setShowSetup(false)}>Start Drawing</Button>
+          <label className="flex items-center gap-2">
+            <input type="checkbox" checked={darkMode} onChange={() => setDarkMode((d) => !d)} />
+            <span>{darkMode ? "Dark Mode" : "Light Mode"}</span>
+          </label>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className={lightMode ? 'light-mode' : 'dark-mode'}>
-      {showSetup ? (
-        <div className="setup-screen">
-          <h1>Setup Mystery Game</h1>
-          <input
-            placeholder="League Name"
-            value={leagueName}
-            onChange={(e) => setLeagueName(e.target.value)}
-          />
-          <input
-            type="number"
-            placeholder="Minimum Score"
-            value={minScore}
-            onChange={(e) => setMinScore(Number(e.target.value))}
-          />
-          <div className="prize-inputs">
-            {prizes.map((prize, i) => (
-              <input
-                key={i}
-                value={prize}
-                onChange={(e) => {
-                  const newPrizes = [...prizes];
-                  newPrizes[i] = e.target.value;
-                  setPrizes(newPrizes);
-                }}
-              />
-            ))}
-          </div>
-          <button onClick={() => setShowSetup(false)}>Start Game</button>
-        </div>
-      ) : (
-        <div className="game-screen">
-          <h1>{leagueName}</h1>
-          <div className="games-row">
-            {[0, 1, 2].map((i) => (
-              <GameBox
-                key={i}
-                label={`Game ${i + 1}`}
-                value={gameScores[i]}
-                onDraw={() => drawGame(i)}
-                disabled={i > 0 && gameScores[i - 1] === null}
-              />
-            ))}
-          </div>
-          <div className="series-display">
-            <strong>Mystery Series:</strong> {total ?? '--'}
-          </div>
-          <div className="button-row">
-            <button onClick={() => setEditing(!editing)}>
-              {editing ? 'Done Editing' : 'Edit Prizes'}
-            </button>
-            <label>
-              <input
-                type="checkbox"
-                checked={!lightMode}
-                onChange={() => setLightMode(!lightMode)}
-              />
-              Dark Mode
-            </label>
-            <button onClick={reset}>Reset Drawing</button>
-            <button onClick={() => setShowSetup(true)}>Settings</button>
-          </div>
-          {editing && (
-            <div className="prizes-row">
-              {prizes.map((p, i) => (
-                <div key={i} className="prize-item">
-                  Game {i + 1}: {p}
-                </div>
-              ))}
+    <div className={`min-h-screen p-4 flex flex-col items-center justify-center ${themeClasses}`}>
+      <h1 className="text-4xl font-bold mb-2 text-center">{leagueName}</h1>
+      <p className="text-lg mb-8 text-center">
+        Drawing random bowling scores between {minScore} and 300
+      </p>
+
+      <div className="flex flex-col space-y-6 items-center">
+        <div className="flex flex-row justify-center gap-12 mb-6">
+          {['g1', 'g2', 'g3'].map((key) => (
+            <div key={key} className="text-center">
+              <div className="text-xl font-semibold mb-1">
+                Game {key[1]} - ${prizes[key]}
+              </div>
+              <div className="text-5xl font-bold h-16">
+                {drawnScores[key] !== null ? (
+                  <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+                    {drawnScores[key]}
+                  </motion.div>
+                ) : (
+                  "--"
+                )}
+              </div>
+              <Button
+                className="mt-2"
+                onClick={() => drawGame(key)}
+                disabled={!canDraw(key) || isDrawing[key]}
+              >
+                Draw Game {key[1]}
+              </Button>
             </div>
-          )}
+          ))}
         </div>
-      )}
+
+        <div className="text-center mt-2">
+          <div className="text-xl font-semibold mb-1">
+            Mystery Series - ${prizes.series}
+          </div>
+          <div className="text-5xl font-bold h-16">
+            {seriesTotal !== null ? (
+              <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}>
+                {seriesTotal}
+              </motion.div>
+            ) : (
+              "--"
+            )}
+          </div>
+        </div>
+
+        <div className="flex flex-row gap-4 justify-center mt-6">
+          <Button onClick={reset}>Reset Drawing</Button>
+          <Button variant="outline" onClick={() => setShowSettings((s) => !s)}>
+            {showSettings ? "Hide Settings" : "Edit Prizes"}
+          </Button>
+          <label className="flex items-center gap-2">
+            <input type="checkbox" checked={darkMode} onChange={() => setDarkMode((d) => !d)} />
+            <span>{darkMode ? "Dark Mode" : "Light Mode"}</span>
+          </label>
+        </div>
+
+        {showSettings && (
+          <div className="mt-4">
+            {['g1', 'g2', 'g3', 'series'].map((key) => (
+              <div key={key} className="mb-2">
+                <label className="block mb-1">{`${key === 'series' ? 'Series' : 'Game ' + key[1]} Prize`}</label>
+                <Input
+                  type="number"
+                  value={prizes[key]}
+                  onChange={(e) => setPrizes((p) => ({ ...p, [key]: Number(e.target.value) }))}
+                />
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
-};
-
-export default MysteryGame;
+}
